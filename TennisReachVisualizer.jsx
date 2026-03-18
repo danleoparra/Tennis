@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 export default function TennisReachVisualizer() {
   const real = {
@@ -6,14 +6,13 @@ export default function TennisReachVisualizer() {
     singlesWidth: 8.23,
     halfLength: 11.885,
     serviceLineFromNet: 6.4,
-    centerMarkLength: 0.1,
   };
 
-  const scale = 25; // smaller court to emphasize outer green area
-  const courtMargin = 120; // expanded green safety area (3x)
-  const outerSpaceX = 80; // keep grey thin
-  const outerSpaceTop = 100; // keep grey thin
-  const outerSpaceBottom = 80; // keep grey thin
+  const scale = 25;
+  const courtMargin = 120;
+  const outerSpaceX = 80;
+  const outerSpaceTop = 100;
+  const outerSpaceBottom = 80;
 
   const court = {
     width: real.doublesWidth * scale,
@@ -22,7 +21,6 @@ export default function TennisReachVisualizer() {
     netY: real.halfLength * scale,
     serviceOffset: real.serviceLineFromNet * scale,
     centerX: (real.doublesWidth * scale) / 2,
-    centerMarkLength: real.centerMarkLength * scale,
   };
 
   const playArea = {
@@ -35,7 +33,19 @@ export default function TennisReachVisualizer() {
   const svgWidth = court.width + outerSpaceX * 2;
   const svgHeight = court.height + outerSpaceTop + outerSpaceBottom;
 
+  const doublesLeftX = playArea.x;
+  const doublesRightX = playArea.x + court.width;
+  const singlesLeftX = playArea.x + court.singlesInset;
+  const singlesRightX = playArea.x + court.width - court.singlesInset;
+  const baselineTopY = playArea.y;
+  const baselineBottomY = playArea.y + court.height;
+  const netY = playArea.y + court.netY;
+  const topServiceY = playArea.y + court.netY - court.serviceOffset;
+  const bottomServiceY = playArea.y + court.netY + court.serviceOffset;
+  const centerServiceX = playArea.x + court.centerX;
+
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+  const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
   const radToDeg = (rad) => (rad * 180) / Math.PI;
 
   const [showLayers, setShowLayers] = useState({
@@ -72,6 +82,23 @@ export default function TennisReachVisualizer() {
 
   const activePlayer = players.find((p) => p.active) || players[0];
 
+  const getMovementBounds = (player) => {
+    if (player.side === "top") {
+      return {
+        minX: playArea.x - courtMargin,
+        maxX: playArea.x + playArea.width + courtMargin,
+        minY: playArea.y - courtMargin,
+        maxY: netY,
+      };
+    }
+    return {
+      minX: playArea.x - courtMargin,
+      maxX: playArea.x + playArea.width + courtMargin,
+      minY: netY,
+      maxY: playArea.y + playArea.height + courtMargin,
+    };
+  };
+
   const getSvgPoint = (event) => {
     const svg = svgRef.current;
     if (!svg) return null;
@@ -86,7 +113,6 @@ export default function TennisReachVisualizer() {
     setPlayers((prev) =>
       prev.map((player) => {
         if (player.id !== id) return player;
-
         const bounds = getMovementBounds(player);
         return {
           ...player,
@@ -107,57 +133,21 @@ export default function TennisReachVisualizer() {
     updatePlayerPosition(draggingId, getSvgPoint(event));
   };
 
-  const handlePointerUp = () => {
-    setDraggingId(null);
-  };
+  const handlePointerUp = () => setDraggingId(null);
 
-  const doublesLeftX = playArea.x;
-  const doublesRightX = playArea.x + court.width;
-  const singlesLeftX = playArea.x + court.singlesInset;
-  const singlesRightX = playArea.x + court.width - court.singlesInset;
-  const baselineTopY = playArea.y;
-  const netY = playArea.y + court.netY;
-  const topServiceY = playArea.y + court.netY - court.serviceOffset;
-  const centerServiceX = playArea.x + court.centerX;
-
-  const getMovementBounds = (player) => {
-    if (player.side === "top") {
-      return {
-        minX: playArea.x - courtMargin,
-        maxX: playArea.x + playArea.width + courtMargin,
-        minY: playArea.y - courtMargin,
-        maxY: netY,
-      };
-    }
-
-    return {
-      minX: playArea.x - courtMargin,
-      maxX: playArea.x + playArea.width + courtMargin,
-      minY: netY,
-      maxY: playArea.y + playArea.height + courtMargin,
-    };
-  };
-
-  const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
   const courtCenterX = playArea.x + court.centerX;
   const halfCourtWidth = court.width / 2;
-
-  // Official geometry only
   const baseExtension = 0.6 * scale;
   const distanceToNetNorm = clamp01(Math.abs(activePlayer.y - netY) / court.netY);
-  const netProximity = 1 - distanceToNetNorm; // 0 baseline, 1 net
-
+  const netProximity = 1 - distanceToNetNorm;
   const activeLateralNorm = (activePlayer.x - courtCenterX) / halfCourtWidth;
   const activeSide = activeLateralNorm < 0 ? "left" : "right";
 
-  // Player may move outside the singles sideline, which can open the cross-court angle,
-  // but the reference court margins remain official.
   const playerOutsideLeft = Math.max(0, singlesLeftX - activePlayer.x);
   const playerOutsideRight = Math.max(0, activePlayer.x - singlesRightX);
   const outsideBoost = 1.0;
   const netApproachBoost = netProximity * 1.2 * scale;
 
-  // Official anchors
   const singlesLeftBaselineCorner = { x: singlesLeftX, y: baselineTopY - baseExtension };
   const singlesRightBaselineCorner = { x: singlesRightX, y: baselineTopY - baseExtension };
   const serviceLeftCorner = { x: singlesLeftX, y: topServiceY };
@@ -181,35 +171,47 @@ export default function TennisReachVisualizer() {
     };
   };
 
-  // Singles:
-  // - down-the-line stays tied to the official singles corner
-  // - cross-court can open more, especially if player is outside the sideline
-  // - near the net, the DTL side aims toward the service-line/singles-line intersection
-  const leftSinglesAnchor = activeSide === "left"
-    ? interpolate(singlesLeftBaselineCorner, serviceLeftCorner, netProximity)
-    : {
-        x: singlesLeftX - (playerOutsideRight * outsideBoost + netApproachBoost),
-        y: baselineTopY - baseExtension,
-      };
+  const extendToEdge = (origin, targetPoint) => {
+    const dx = targetPoint.x - origin.x;
+    const dy = targetPoint.y - origin.y;
+    const length = Math.hypot(dx, dy) || 1;
+    const ux = dx / length;
+    const uy = dy / length;
+    const big = Math.max(svgWidth, svgHeight) * 2;
+    return {
+      x: origin.x + ux * big,
+      y: origin.y + uy * big,
+    };
+  };
 
-  const rightSinglesAnchor = activeSide === "right"
-    ? interpolate(singlesRightBaselineCorner, serviceRightCorner, netProximity)
-    : {
-        x: singlesRightX + (playerOutsideLeft * outsideBoost + netApproachBoost),
-        y: baselineTopY - baseExtension,
-      };
+  const leftSinglesAnchor =
+    activeSide === "left"
+      ? interpolate(singlesLeftBaselineCorner, serviceLeftCorner, netProximity)
+      : {
+          x: singlesLeftX - (playerOutsideRight * outsideBoost + netApproachBoost),
+          y: baselineTopY - baseExtension,
+        };
+
+  const rightSinglesAnchor =
+    activeSide === "right"
+      ? interpolate(singlesRightBaselineCorner, serviceRightCorner, netProximity)
+      : {
+          x: singlesRightX + (playerOutsideLeft * outsideBoost + netApproachBoost),
+          y: baselineTopY - baseExtension,
+        };
 
   const volleyCarryDistance = 1.8 * scale;
 
-  const singlesLeftTarget = activeSide === "left"
-    ? extendThroughPoint(activePlayer, leftSinglesAnchor, volleyCarryDistance)
-    : leftSinglesAnchor;
+  const singlesLeftTarget =
+    activeSide === "left"
+      ? extendThroughPoint(activePlayer, leftSinglesAnchor, volleyCarryDistance)
+      : leftSinglesAnchor;
 
-  const singlesRightTarget = activeSide === "right"
-    ? extendThroughPoint(activePlayer, rightSinglesAnchor, volleyCarryDistance)
-    : rightSinglesAnchor;
+  const singlesRightTarget =
+    activeSide === "right"
+      ? extendThroughPoint(activePlayer, rightSinglesAnchor, volleyCarryDistance)
+      : rightSinglesAnchor;
 
-  // Service: keep official service box margins only
   const target = {
     doublesLeftWindow: { x: doublesLeftX, y: baselineTopY - baseExtension },
     doublesRightWindow: { x: doublesRightX, y: baselineTopY - baseExtension },
@@ -220,21 +222,20 @@ export default function TennisReachVisualizer() {
     serviceRight: serviceRightCorner,
   };
 
-  const angleTo = (point) => Math.atan2(point.y - activePlayer.y, point.x - activePlayer.x);
+  const angles = {
+    doublesLeftWindow: Math.atan2(target.doublesLeftWindow.y - activePlayer.y, target.doublesLeftWindow.x - activePlayer.x),
+    doublesRightWindow: Math.atan2(target.doublesRightWindow.y - activePlayer.y, target.doublesRightWindow.x - activePlayer.x),
+    singlesLeftWindow: Math.atan2(target.singlesLeftWindow.y - activePlayer.y, target.singlesLeftWindow.x - activePlayer.x),
+    singlesRightWindow: Math.atan2(target.singlesRightWindow.y - activePlayer.y, target.singlesRightWindow.x - activePlayer.x),
+    serviceLeft: Math.atan2(target.serviceLeft.y - activePlayer.y, target.serviceLeft.x - activePlayer.x),
+    serviceCenter: Math.atan2(target.serviceCenter.y - activePlayer.y, target.serviceCenter.x - activePlayer.x),
+    serviceRight: Math.atan2(target.serviceRight.y - activePlayer.y, target.serviceRight.x - activePlayer.x),
+  };
+
   const openingBetween = (a, b) => {
     let diff = Math.abs(radToDeg(b - a));
     if (diff > 180) diff = 360 - diff;
     return diff;
-  };
-
-  const angles = {
-    doublesLeftWindow: angleTo(target.doublesLeftWindow),
-    doublesRightWindow: angleTo(target.doublesRightWindow),
-    singlesLeftWindow: angleTo(target.singlesLeftWindow),
-    singlesRightWindow: angleTo(target.singlesRightWindow),
-    serviceLeft: angleTo(target.serviceLeft),
-    serviceCenter: angleTo(target.serviceCenter),
-    serviceRight: angleTo(target.serviceRight),
   };
 
   const openings = {
@@ -248,20 +249,19 @@ export default function TennisReachVisualizer() {
   const activePosition = {
     xMeters: ((activePlayer.x - playArea.x) / scale).toFixed(2),
     yMetersFromTop: ((activePlayer.y - playArea.y) / scale).toFixed(2),
-    yMetersFromNet: ((activePlayer.y - netY) / scale).toFixed(2),
   };
 
-  
-
-  
+  const singlesLeftEnd = extendToEdge(activePlayer, target.singlesLeftWindow);
+  const singlesRightEnd = extendToEdge(activePlayer, target.singlesRightWindow);
+  const serviceLeftEnd = extendToEdge(activePlayer, target.serviceLeft);
+  const serviceCenterEnd = extendToEdge(activePlayer, target.serviceCenter);
+  const serviceRightEnd = extendToEdge(activePlayer, target.serviceRight);
 
   return (
     <div className="min-h-screen bg-slate-100 p-6 flex flex-col items-center gap-6">
       <div className="max-w-6xl w-full text-center">
         <h1 className="text-3xl font-bold text-slate-900">Tennis Court Angle Visualizer</h1>
-        <p className="text-slate-600 mt-2">
-          Drag players to study the real shot window into the opposite court (no net-crossing guides).
-        </p>
+        <p className="text-slate-600 mt-2">Drag players to study the real shot window into the opposite court.</p>
       </div>
 
       <div className="w-full max-w-7xl grid lg:grid-cols-[1fr_380px] gap-6 items-start">
@@ -275,7 +275,6 @@ export default function TennisReachVisualizer() {
             onPointerLeave={handlePointerUp}
           >
             <rect x="0" y="0" width={svgWidth} height={svgHeight} fill="#dbe4ea" />
-
             <rect
               x={playArea.x - courtMargin}
               y={playArea.y - courtMargin}
@@ -284,144 +283,71 @@ export default function TennisReachVisualizer() {
               rx="16"
               fill="#7c9a6d"
             />
-
             <rect x={playArea.x} y={playArea.y} width={court.width} height={court.height} fill="#256c3a" rx="10" />
-
-            <rect
-              x={playArea.x}
-              y={playArea.y}
-              width={court.width}
-              height={court.height}
-              fill="none"
-              stroke="white"
-              strokeWidth="3"
-            />
-
+            <rect x={playArea.x} y={playArea.y} width={court.width} height={court.height} fill="none" stroke="white" strokeWidth="3" />
             <line x1={singlesLeftX} y1={playArea.y} x2={singlesLeftX} y2={playArea.y + court.height} stroke="white" strokeWidth="2.5" />
             <line x1={singlesRightX} y1={playArea.y} x2={singlesRightX} y2={playArea.y + court.height} stroke="white" strokeWidth="2.5" />
-
             <line x1={playArea.x} y1={netY} x2={playArea.x + court.width} y2={netY} stroke="#f8fafc" strokeWidth="5" />
-
             <line x1={singlesLeftX} y1={topServiceY} x2={singlesRightX} y2={topServiceY} stroke="white" strokeWidth="2.5" />
-            <line x1={singlesLeftX} y1={playArea.y + court.netY + court.serviceOffset} x2={singlesRightX} y2={playArea.y + court.netY + court.serviceOffset} stroke="white" strokeWidth="2.5" />
+            <line x1={singlesLeftX} y1={bottomServiceY} x2={singlesRightX} y2={bottomServiceY} stroke="white" strokeWidth="2.5" />
+            <line x1={centerServiceX} y1={topServiceY} x2={centerServiceX} y2={bottomServiceY} stroke="white" strokeWidth="2.5" />
 
-            <line x1={centerServiceX} y1={topServiceY} x2={centerServiceX} y2={playArea.y + court.netY + court.serviceOffset} stroke="white" strokeWidth="2.5" />
-
-            {activePlayer && (
+            {showLayers.doubles && (
               <>
-                {showLayers.doubles && (
-                  <>
-                    <polygon
-                      points={`${activePlayer.x},${activePlayer.y} ${target.doublesLeftWindow.x},${target.doublesLeftWindow.y} ${target.doublesRightWindow.x},${target.doublesRightWindow.y}`}
-                      fill="#60a5fa"
-                      opacity="0.08"
-                    />
-                    <line x1={activePlayer.x} y1={activePlayer.y} x2={target.doublesLeftWindow.x} y2={target.doublesLeftWindow.y} stroke="#60a5fa" strokeWidth="2.5" strokeDasharray="7 5" />
-                    <line x1={activePlayer.x} y1={activePlayer.y} x2={target.doublesRightWindow.x} y2={target.doublesRightWindow.y} stroke="#60a5fa" strokeWidth="2.5" strokeDasharray="7 5" />
-                  </>
-                )}
-
-                {showLayers.singles && (
-                  <>
-                    <polygon
-                      points={`${activePlayer.x},${activePlayer.y} ${target.singlesLeftWindow.x},${target.singlesLeftWindow.y} ${target.singlesRightWindow.x},${target.singlesRightWindow.y}`}
-                      fill="#f59e0b"
-                      opacity="0.10"
-                    />
-
-                    {/* Extend singles lines to full image */}
-                    {(() => {
-                      const extendToEdge = (targetPoint) => {
-                        const dx = targetPoint.x - activePlayer.x;
-                        const dy = targetPoint.y - activePlayer.y;
-                        const length = Math.hypot(dx, dy) || 1;
-                        const ux = dx / length;
-                        const uy = dy / length;
-                        const big = Math.max(svgWidth, svgHeight) * 2;
-                        return {
-                          x: activePlayer.x + ux * big,
-                          y: activePlayer.y + uy * big,
-                        };
-                      };
-
-                      const leftEnd = extendToEdge(target.singlesLeftWindow);
-                      const rightEnd = extendToEdge(target.singlesRightWindow);
-
-                      return (
-                        <>
-                          <line
-                            x1={activePlayer.x}
-                            y1={activePlayer.y}
-                            x2={leftEnd.x}
-                            y2={leftEnd.y}
-                            stroke="#f59e0b"
-                            strokeWidth="2.5"
-                            strokeDasharray="7 5"
-                          />
-                          <line
-                            x1={activePlayer.x}
-                            y1={activePlayer.y}
-                            x2={rightEnd.x}
-                            y2={rightEnd.y}
-                            stroke="#f59e0b"
-                            strokeWidth="2.5"
-                            strokeDasharray="7 5"
-                          />
-                        </>
-                      );
-                    })()}
-                  </>
-                )}
-
-                {showLayers.service && (
-                  <>
-                    <polygon
-                      points={`${activePlayer.x},${activePlayer.y} ${target.serviceLeft.x},${target.serviceLeft.y} ${target.serviceCenter.x},${target.serviceCenter.y}`}
-                      fill="#a855f7"
-                      opacity="0.10"
-                    />
-                    <polygon
-                      points={`${activePlayer.x},${activePlayer.y} ${target.serviceCenter.x},${target.serviceCenter.y} ${target.serviceRight.x},${target.serviceRight.y}`}
-                      fill="#22c55e"
-                      opacity="0.10"
-                    />
-
-                    {(() => {
-                      const extendToEdge = (targetPoint) => {
-                        const dx = targetPoint.x - activePlayer.x;
-                        const dy = targetPoint.y - activePlayer.y;
-                        const length = Math.hypot(dx, dy) || 1;
-                        const ux = dx / length;
-                        const uy = dy / length;
-                        const big = Math.max(svgWidth, svgHeight) * 2;
-                        return {
-                          x: activePlayer.x + ux * big,
-                          y: activePlayer.y + uy * big,
-                        };
-                      };
-
-                      const leftEnd = extendToEdge(target.serviceLeft);
-                      const centerEnd = extendToEdge(target.serviceCenter);
-                      const rightEnd = extendToEdge(target.serviceRight);
-
-                      return (
-                        <>
-                          <line x1={activePlayer.x} y1={activePlayer.y} x2={leftEnd.x} y2={leftEnd.y} stroke="#a855f7" strokeWidth="2" strokeDasharray="7 5" />
-                          <line x1={activePlayer.x} y1={activePlayer.y} x2={centerEnd.x} y2={centerEnd.y} stroke="#22c55e" strokeWidth="2" strokeDasharray="7 5" />
-                          <line x1={activePlayer.x} y1={activePlayer.y} x2={rightEnd.x} y2={rightEnd.y} stroke="#a855f7" strokeWidth="2" strokeDasharray="7 5" />
-                        </>
-                      );
-                    })()}
-                  </>
-                )}
-
-                <circle cx={activePlayer.x} cy={activePlayer.y} r={activePlayer.reach} fill={activePlayer.color} opacity="0.10" stroke={activePlayer.color} strokeWidth="2" strokeDasharray="8 6" />
+                <polygon
+                  points={`${activePlayer.x},${activePlayer.y} ${target.doublesLeftWindow.x},${target.doublesLeftWindow.y} ${target.doublesRightWindow.x},${target.doublesRightWindow.y}`}
+                  fill="#60a5fa"
+                  opacity="0.08"
+                />
+                <line x1={activePlayer.x} y1={activePlayer.y} x2={target.doublesLeftWindow.x} y2={target.doublesLeftWindow.y} stroke="#60a5fa" strokeWidth="2.5" strokeDasharray="7 5" />
+                <line x1={activePlayer.x} y1={activePlayer.y} x2={target.doublesRightWindow.x} y2={target.doublesRightWindow.y} stroke="#60a5fa" strokeWidth="2.5" strokeDasharray="7 5" />
               </>
             )}
 
+            {showLayers.singles && (
+              <>
+                <polygon
+                  points={`${activePlayer.x},${activePlayer.y} ${target.singlesLeftWindow.x},${target.singlesLeftWindow.y} ${target.singlesRightWindow.x},${target.singlesRightWindow.y}`}
+                  fill="#f59e0b"
+                  opacity="0.10"
+                />
+                <line x1={activePlayer.x} y1={activePlayer.y} x2={singlesLeftEnd.x} y2={singlesLeftEnd.y} stroke="#f59e0b" strokeWidth="2.5" strokeDasharray="7 5" />
+                <line x1={activePlayer.x} y1={activePlayer.y} x2={singlesRightEnd.x} y2={singlesRightEnd.y} stroke="#f59e0b" strokeWidth="2.5" strokeDasharray="7 5" />
+              </>
+            )}
+
+            {showLayers.service && (
+              <>
+                <polygon
+                  points={`${activePlayer.x},${activePlayer.y} ${target.serviceLeft.x},${target.serviceLeft.y} ${target.serviceCenter.x},${target.serviceCenter.y}`}
+                  fill="#a855f7"
+                  opacity="0.10"
+                />
+                <polygon
+                  points={`${activePlayer.x},${activePlayer.y} ${target.serviceCenter.x},${target.serviceCenter.y} ${target.serviceRight.x},${target.serviceRight.y}`}
+                  fill="#22c55e"
+                  opacity="0.10"
+                />
+                <line x1={activePlayer.x} y1={activePlayer.y} x2={serviceLeftEnd.x} y2={serviceLeftEnd.y} stroke="#a855f7" strokeWidth="2" strokeDasharray="7 5" />
+                <line x1={activePlayer.x} y1={activePlayer.y} x2={serviceCenterEnd.x} y2={serviceCenterEnd.y} stroke="#22c55e" strokeWidth="2" strokeDasharray="7 5" />
+                <line x1={activePlayer.x} y1={activePlayer.y} x2={serviceRightEnd.x} y2={serviceRightEnd.y} stroke="#a855f7" strokeWidth="2" strokeDasharray="7 5" />
+              </>
+            )}
+
+            <circle cx={activePlayer.x} cy={activePlayer.y} r={activePlayer.reach} fill={activePlayer.color} opacity="0.10" stroke={activePlayer.color} strokeWidth="2" strokeDasharray="8 6" />
+
             {players.map((player) => (
               <g key={player.id}>
-                <circle cx={player.x} cy={player.y} r="11" fill={player.color} stroke={player.active ? "#f8fafc" : "white"} strokeWidth={player.active ? "4" : "3"} className="cursor-grab active:cursor-grabbing" onPointerDown={handlePointerDown(player.id)} />
+                <circle
+                  cx={player.x}
+                  cy={player.y}
+                  r="11"
+                  fill={player.color}
+                  stroke={player.active ? "#f8fafc" : "white"}
+                  strokeWidth={player.active ? "4" : "3"}
+                  className="cursor-grab active:cursor-grabbing"
+                  onPointerDown={handlePointerDown(player.id)}
+                />
                 <text x={player.x} y={player.y - 18} textAnchor="middle" fontSize="13" fontWeight="700" fill="white">
                   {player.name}
                 </text>
@@ -456,6 +382,8 @@ export default function TennisReachVisualizer() {
                 </button>
               ))}
             </div>
+          </div>
+
           <div className="bg-white rounded-2xl shadow-md p-4">
             <h2 className="font-semibold text-slate-900 mb-2">Shot window angles</h2>
             <div className="text-sm text-slate-700 space-y-2 leading-6">
@@ -468,17 +396,12 @@ export default function TennisReachVisualizer() {
             </div>
           </div>
 
-          
-          </div>
-
           <div className="bg-white rounded-2xl shadow-md p-4">
             <h2 className="font-semibold text-slate-900 mb-2">Guide</h2>
             <div className="text-sm text-slate-600 leading-6 space-y-2">
               <p><span className="font-medium text-slate-800">Blue sector:</span> doubles shot window.</p>
-              <p><span className="font-medium text-slate-800">Orange sector:</span> singles shot window. Near the net, the line aims toward the service-line/singles-line intersection, but it keeps going beyond that point instead of stopping there.</p>
-              <p><span className="font-medium text-slate-800">Purple/green:</span> service boxes.</p>
-              <p>Singles uses the official singles margins. Near the net, the line aims toward the service-line/singles-line intersection and then continues through it.</p>
-              <p>Service uses the official service box margins only, but the service guide lines continue to the edge of the image.</p>
+              <p><span className="font-medium text-slate-800">Orange sector:</span> singles shot window. Near the net, the line aims toward the service-line/singles-line intersection and continues beyond it.</p>
+              <p><span className="font-medium text-slate-800">Purple/green:</span> service boxes with official service margins.</p>
             </div>
           </div>
         </div>
