@@ -38,7 +38,6 @@ export default function TennisReachVisualizer() {
   const singlesLeftX = playArea.x + court.singlesInset;
   const singlesRightX = playArea.x + court.width - court.singlesInset;
   const baselineTopY = playArea.y;
-  const baselineBottomY = playArea.y + court.height;
   const netY = playArea.y + court.netY;
   const topServiceY = playArea.y + court.netY - court.serviceOffset;
   const bottomServiceY = playArea.y + court.netY + court.serviceOffset;
@@ -257,19 +256,109 @@ export default function TennisReachVisualizer() {
   const serviceCenterEnd = extendToEdge(activePlayer, target.serviceCenter);
   const serviceRightEnd = extendToEdge(activePlayer, target.serviceRight);
 
+  const styles = {
+    page: {
+      minHeight: "100vh",
+      background: "#f1f5f9",
+      padding: 24,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      gap: 24,
+      fontFamily: "Arial, sans-serif",
+      boxSizing: "border-box",
+    },
+    header: {
+      maxWidth: 1200,
+      width: "100%",
+      textAlign: "center",
+    },
+    h1: {
+      margin: 0,
+      fontSize: 32,
+      color: "#0f172a",
+    },
+    subtitle: {
+      marginTop: 8,
+      color: "#475569",
+    },
+    layout: {
+      width: "100%",
+      maxWidth: 1400,
+      display: "grid",
+      gridTemplateColumns: "minmax(0, 1fr) 380px",
+      gap: 24,
+      alignItems: "start",
+    },
+    card: {
+      background: "white",
+      borderRadius: 24,
+      boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+      padding: 16,
+      overflow: "hidden",
+    },
+    sideCol: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 16,
+    },
+    panel: {
+      background: "white",
+      borderRadius: 18,
+      boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+      padding: 16,
+    },
+    panelTitle: {
+      margin: "0 0 12px 0",
+      fontSize: 18,
+      color: "#0f172a",
+    },
+    button: (active) => ({
+      width: "100%",
+      borderRadius: 12,
+      padding: "12px 16px",
+      textAlign: "left",
+      border: active ? "1px solid #0f172a" : "1px solid #cbd5e1",
+      background: active ? "#0f172a" : "white",
+      color: active ? "white" : "#334155",
+      cursor: "pointer",
+      marginBottom: 10,
+    }),
+    toggle: (active) => ({
+      width: "100%",
+      borderRadius: 10,
+      padding: "10px 14px",
+      border: "1px solid #cbd5e1",
+      background: active ? "#16a34a" : "white",
+      color: active ? "white" : "#475569",
+      cursor: "pointer",
+      marginBottom: 8,
+    }),
+    text: {
+      fontSize: 14,
+      color: "#334155",
+      lineHeight: 1.7,
+      margin: 0,
+    },
+    strong: {
+      fontWeight: 700,
+      color: "#0f172a",
+    },
+  };
+
   return (
-    <div className="min-h-screen bg-slate-100 p-6 flex flex-col items-center gap-6">
-      <div className="max-w-6xl w-full text-center">
-        <h1 className="text-3xl font-bold text-slate-900">Tennis Court Angle Visualizer</h1>
-        <p className="text-slate-600 mt-2">Drag players to study the real shot window into the opposite court.</p>
+    <div style={styles.page}>
+      <div style={styles.header}>
+        <h1 style={styles.h1}>Tennis Court Angle Visualizer</h1>
+        <p style={styles.subtitle}>Drag players to study the real shot window into the opposite court.</p>
       </div>
 
-      <div className="w-full max-w-7xl grid lg:grid-cols-[1fr_380px] gap-6 items-start">
-        <div className="bg-white rounded-3xl shadow-xl p-4 overflow-hidden">
+      <div style={styles.layout}>
+        <div style={styles.card}>
           <svg
             ref={svgRef}
             viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-            className="w-full h-auto rounded-2xl touch-none select-none"
+            style={{ width: "100%", height: "auto", borderRadius: 16, touchAction: "none", userSelect: "none" }}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
@@ -345,7 +434,7 @@ export default function TennisReachVisualizer() {
                   fill={player.color}
                   stroke={player.active ? "#f8fafc" : "white"}
                   strokeWidth={player.active ? "4" : "3"}
-                  className="cursor-grab active:cursor-grabbing"
+                  style={{ cursor: "grab" }}
                   onPointerDown={handlePointerDown(player.id)}
                 />
                 <text x={player.x} y={player.y - 18} textAnchor="middle" fontSize="13" fontWeight="700" fill="white">
@@ -356,27 +445,26 @@ export default function TennisReachVisualizer() {
           </svg>
         </div>
 
-        <div className="space-y-4">
-          <div className="bg-white rounded-2xl shadow-md p-4">
-            <h2 className="font-semibold text-slate-900 mb-3">Controls</h2>
-            <div className="space-y-3">
+        <div style={styles.sideCol}>
+          <div style={styles.panel}>
+            <h2 style={styles.panelTitle}>Controls</h2>
+            <div>
               {players.map((player) => (
                 <button
                   key={player.id}
                   onClick={() => setPlayers((prev) => prev.map((p) => ({ ...p, active: p.id === player.id })))}
-                  className={`w-full rounded-xl px-4 py-3 text-left border transition ${player.active ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-700"}`}
+                  style={styles.button(player.active)}
                 >
                   {player.name}
                 </button>
               ))}
             </div>
-
-            <div className="mt-4 space-y-2">
+            <div style={{ marginTop: 12 }}>
               {Object.entries(showLayers).map(([key, value]) => (
                 <button
                   key={key}
                   onClick={() => setShowLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
-                  className={`w-full rounded-lg px-3 py-2 text-sm border ${value ? "bg-green-600 text-white" : "bg-white text-slate-600"}`}
+                  style={styles.toggle(value)}
                 >
                   {key.toUpperCase()} {value ? "ON" : "OFF"}
                 </button>
@@ -384,25 +472,21 @@ export default function TennisReachVisualizer() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-md p-4">
-            <h2 className="font-semibold text-slate-900 mb-2">Shot window angles</h2>
-            <div className="text-sm text-slate-700 space-y-2 leading-6">
-              <p><span className="font-medium">Doubles target window:</span> {openings.windowDoubles.toFixed(1)}°</p>
-              <p><span className="font-medium">Singles target window:</span> {openings.windowSingles.toFixed(1)}°</p>
-              <p><span className="font-medium">Full service window:</span> {openings.serviceLineFull.toFixed(1)}°</p>
-              <p><span className="font-medium">Ad service box:</span> {openings.serviceBoxLeft.toFixed(1)}°</p>
-              <p><span className="font-medium">Deuce service box:</span> {openings.serviceBoxRight.toFixed(1)}°</p>
-              <p><span className="font-medium">Player position:</span> x {activePosition.xMeters} m, y {activePosition.yMetersFromTop} m</p>
-            </div>
+          <div style={styles.panel}>
+            <h2 style={styles.panelTitle}>Shot window angles</h2>
+            <p style={styles.text}><span style={styles.strong}>Doubles target window:</span> {openings.windowDoubles.toFixed(1)}°</p>
+            <p style={styles.text}><span style={styles.strong}>Singles target window:</span> {openings.windowSingles.toFixed(1)}°</p>
+            <p style={styles.text}><span style={styles.strong}>Full service window:</span> {openings.serviceLineFull.toFixed(1)}°</p>
+            <p style={styles.text}><span style={styles.strong}>Ad service box:</span> {openings.serviceBoxLeft.toFixed(1)}°</p>
+            <p style={styles.text}><span style={styles.strong}>Deuce service box:</span> {openings.serviceBoxRight.toFixed(1)}°</p>
+            <p style={styles.text}><span style={styles.strong}>Player position:</span> x {activePosition.xMeters} m, y {activePosition.yMetersFromTop} m</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-md p-4">
-            <h2 className="font-semibold text-slate-900 mb-2">Guide</h2>
-            <div className="text-sm text-slate-600 leading-6 space-y-2">
-              <p><span className="font-medium text-slate-800">Blue sector:</span> doubles shot window.</p>
-              <p><span className="font-medium text-slate-800">Orange sector:</span> singles shot window. Near the net, the line aims toward the service-line/singles-line intersection and continues beyond it.</p>
-              <p><span className="font-medium text-slate-800">Purple/green:</span> service boxes with official service margins.</p>
-            </div>
+          <div style={styles.panel}>
+            <h2 style={styles.panelTitle}>Guide</h2>
+            <p style={styles.text}><span style={styles.strong}>Blue sector:</span> doubles shot window.</p>
+            <p style={styles.text}><span style={styles.strong}>Orange sector:</span> singles shot window. Near the net, the line aims toward the service-line/singles-line intersection and continues beyond it.</p>
+            <p style={styles.text}><span style={styles.strong}>Purple/green:</span> service boxes with official service margins.</p>
           </div>
         </div>
       </div>
